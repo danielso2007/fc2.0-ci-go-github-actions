@@ -1,3 +1,5 @@
+[![ci-golang-workflow](https://github.com/danielso2007/fc2.0-ci-go-github-actions/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/danielso2007/fc2.0-ci-go-github-actions/actions/workflows/ci.yaml)
+
 # GitHub Actions – Introdução Técnica
 
 ## 1. O que é

@@ -1,33 +1,98 @@
 name: ci-golang-workflow
-on: 
+
+on:
+  push:
+    branches: [ develop ]
+
   pull_request:
-    branches:
-      - develop
+    branches: [ main ]
+
 jobs:
-  check-application:
+
+  # =========================
+  # 1️⃣ TESTE DA APLICAÇÃO
+  # =========================
+  test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      # Checkout do código
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup Go moderno + cache automático de modules
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.15
-      - run: go test
-      - run: go run math.go
+          go-version: '1.21'
+          cache: true
+
+      # Executa testes de todos os pacotes
+      - name: Run Tests
+        run: go test ./... -v -cover
+
+
+  # =========================
+  # 2️⃣ BUILD DA IMAGEM
+  # =========================
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test   # Só executa se o job test passar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Habilita suporte multi-arch
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
+
+      # Habilita BuildKit (Buildx)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build apenas (sem push)
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true   # Evita warning e carrega no Docker local
+          tags: danielso2007/fc2.0-ci-go:${{ github.sha }}
+
+
+  # =========================
+  # 3️⃣ PUBLICAÇÃO (CD)
+  # =========================
+  docker-publish:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.event_name == 'push'   # Só publica em push (não em PR)
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
+      # Login seguro
       - name: Login to DockerHub
-        uses: docker/login-action@v1 
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
+      # Build e push oficial
+      - name: Build and Push
+        uses: docker/build-push-action@v5
         with:
-          push: false
-          tags: wesleywillians/fc2.0-ci-go:latest
+          context: .
+          push: true
+          tags: |
+            danielso2007/fc2.0-ci-go:latest
+            danielso2007/fc2.0-ci-go:${{ github.sha }}
