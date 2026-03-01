@@ -571,4 +571,3 @@ permissions:
   packages: write
 ```
 Ativar branch protection
-
